@@ -6,8 +6,11 @@
   <body>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script charset="utf-8">
+      var match = location.search.match(/\?q=(.*)$/);
+      var source = match && match.length && match[1];
+
       function drawChart() {
-        const URL = 'https://docs.google.com/spreadsheets/d/1pZWL5-mXY-7LPCkFHaEwgorcwZ2sQ-Q7PSKP2Qcg-c4/edit?usp=sharing';
+        const URL = source;
         var query = new google.visualization.Query(URL);
         query.send(handleQueryResponse);
       }
