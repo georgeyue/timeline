@@ -2,16 +2,57 @@
   <head>
     <meta charset="utf-8">
     <title>Roadmap</title>
+    <style type="text/css" media="screen">
+      #reset {
+        padding: 5px 10px;
+        font-weight: 400;
+        margin: 10px 5px;
+        border-radius: 0;
+        border: 0;
+        background-color: #009cde;
+        color: white;
+        text-transform: uppercase;
+      }
+    </style>
   </head>
   <body>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script charset="utf-8">
-      var match = location.search.match(/\?q=(.*)$/);
+      /**
+       *
+       * supports query params:
+       *   @param q {string} google sheet url
+       *   @param range {string} min-max date range, e.g. 1/1/2017 - 12/31/2017
+       */
+      var match = location.search.match(/q=(.*)$/);
       var source = match && match.length && match[1];
 
-      function drawChart() {
+      var REGEX_INVALID = /invalid/i;
+      var minMax = location.search.match(/range=([^&]*)/);
+      minMax = minMax && minMax.length && minMax[1];
+      minMax = minMax && minMax.split('-');
+
+      var range;
+
+      if (minMax && minMax.length) {
+        range = {
+          minValue: new Date(minMax[0]),
+          maxValue: new Date(minMax[1])
+        };
+
+        if (REGEX_INVALID.test(range.minValue) || REGEX_INVALID.test(range.maxValue)) {
+          range = undefined;
+        }
+      }
+
+      function drawChart(startsWith) {
         const URL = source;
         var query = new google.visualization.Query(URL);
+
+        if (startsWith) {
+          query.setQuery(`select * where B starts with '${startsWith}'`);
+        }
+
         query.send(handleQueryResponse);
       }
 
@@ -19,10 +60,30 @@
         var data = response.getDataTable();
         var chart = new google.visualization.Timeline(document.getElementById('timeline'));
 
-        chart.draw(data, {showRowNumber: true, width: '100%', height: '100%'});
+        google.visualization.events.addListener(chart, 'select', function(e) {
+          var item = chart.getSelection();
+
+          if (item.length && item[0].row) {
+            let value = data.getFormattedValue(item[0].row, 1);
+
+            let startsWith = (value || '').match(/^[a-zA-Z0-9]+/);
+
+            if (startsWith) {
+              drawChart(startsWith);
+            }
+          }
+        });
+
+        chart.draw(data, {width: '100%', height: '100%', hAxis: range });
       }
       google.charts.load("current", {packages:["timeline"]});
       google.charts.setOnLoadCallback(drawChart);
+    </script>
+    <button id="reset">reset view</button>
+    <script charset="utf-8">
+      document.getElementById('reset').addEventListener('click', function() {
+        drawChart();
+      });
     </script>
     <div id="timeline" style="height:100%"></div>
   </body>
