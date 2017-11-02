@@ -9,7 +9,6 @@
         border: 0;
         background-color: #009cde;
         color: white;
-        z-index: 999;
         text-transform: uppercase;
       }
     </style>
@@ -26,22 +25,43 @@
       var match = location.search.match(/q=(.*)$/);
       var source = match && match.length && match[1];
 
-      var REGEX_INVALID = /invalid/i;
-      var minMax = location.search.match(/range=([^&]*)/);
-      minMax = minMax && minMax.length && minMax[1];
-      minMax = minMax && minMax.split('-');
+      var RANGE;
 
-      var range;
+      function calculateRange(dataView) {
+        var REGEX_INVALID = /invalid/i;
+        var minMax = location.search.match(/range=([^&]*)/);
+        minMax = minMax && minMax.length && minMax[1];
+        minMax = minMax && minMax.split('-');
 
-      if (minMax && minMax.length) {
-        range = {
-          minValue: new Date(minMax[0]),
-          maxValue: new Date(minMax[1])
-        };
+        if (minMax && minMax.length) {
+          RANGE = {
+            minValue: new Date(minMax[0]),
+            maxValue: new Date(minMax[1])
+          };
 
-        if (REGEX_INVALID.test(range.minValue) || REGEX_INVALID.test(range.maxValue)) {
-          range = undefined;
+          if (!REGEX_INVALID.test(RANGE.minValue) && !REGEX_INVALID.test(RANGE.maxValue)) {
+            return RANGE;
+          }
         }
+
+        var cnt = dataView.getNumberOfRows();
+        var range = {
+          min: Infinity,
+          max: 0,
+        }
+
+        for(var i = 0; i < cnt; i++) {
+          let min = dataView.getValue(i, 2);
+          let max = dataView.getValue(i, 3);
+
+          range.min = Math.min(range.min, min);
+          range.max = Math.max(range.max, max);
+        }
+
+        return {
+          minValue: new Date(range.min),
+          maxValue: new Date(range.max),
+        };
       }
 
       function drawChart(startsWith) {
@@ -56,15 +76,18 @@
       }
 
       function handleQueryResponse(response) {
-        var data = response.getDataTable();
+        var dataView = new google.visualization.DataView(response.getDataTable());
         var chart = new google.visualization.Timeline(document.getElementById('timeline'));
+
+        if (!RANGE) {
+          RANGE = calculateRange(dataView);
+        }
 
         google.visualization.events.addListener(chart, 'select', function(e) {
           var item = chart.getSelection();
 
           if (item.length && item[0].row) {
-            let value = data.getFormattedValue(item[0].row, 1);
-
+            let value = dataView.getFormattedValue(item[0].row, 1);
             let startsWith = (value || '').match(/^[a-zA-Z0-9]+/);
 
             if (startsWith) {
@@ -73,7 +96,11 @@
           }
         });
 
-        chart.draw(data, {width: '100%', height: '100%', hAxis: range });
+        chart.draw(dataView, {
+          hAxis: RANGE,
+          height: '100%',
+          width: '100%',
+        });
       }
       google.charts.load("current", {packages:["timeline"]});
       google.charts.setOnLoadCallback(drawChart);
