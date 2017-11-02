@@ -50,7 +50,7 @@
       }
 
       function drawChart(startsWith) {
-        const URL = source;
+        const URL = decodeURIComponent(source);
         var query = new google.visualization.Query(URL);
 
         if (startsWith) {
